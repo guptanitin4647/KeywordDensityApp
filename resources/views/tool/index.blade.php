@@ -4,14 +4,15 @@
 <form id="keywordDensityInputForm">
     <div class="form-group">
         <label for="keywordDensityInput">HTML or Text</label>
-        <textarea class="form-control" id="keywordDensityInput" name="keywordInput" rows="12" placeholder="Enter HTML or plain text here..."></textarea>
+        <textarea class="form-control" id="keywordDensityInput" name="keywordInput" rows="6" placeholder="Enter HTML or plain text here..."></textarea>
     </div>
     <div class="form-group">
         <label for="keyword">Keyword</label>
         <input type="text" class="form-control" id="keyword" name="keyword" placeholder="Enter keyword...">
     </div>
-    <button type="submit" class="btn btn-primary mb-2">Get Keyword Densities</button>
+    <button type="submit" class="btn btn-primary mb-2">Get Keyword Density</button>
 </form>
+
 <div id="result" class="mt-3"></div>
 @endsection
 
@@ -19,11 +20,11 @@
 <script>
 document.getElementById('keywordDensityInputForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    
+
     let kdInput = document.getElementById('keywordDensityInput').value;
     let keyword = document.getElementById('keyword').value;
 
-    if (kdInput === "" || keyword === "") { 
+    if (kdInput.trim() === "" || keyword.trim() === "") { 
         document.getElementById('result').innerHTML = "<div class='alert alert-warning'>Please enter both text and a keyword.</div>";
         return;
     }
@@ -38,19 +39,19 @@ document.getElementById('keywordDensityInputForm').addEventListener('submit', fu
     })
     .then(response => response.json())
     .then(data => {
-        if (data.length > 0) {
-            let html = "<table class='table'><thead><tr><th>Keyword</th><th>Count</th><th>Density</th></tr></thead><tbody>";
-            data.forEach(item => {
-                html += `<tr><td>${item.keyword}</td><td>${item.count}</td><td>${item.density}%</td></tr>`;
-            });
-            html += "</tbody></table>";
-            document.getElementById('result').innerHTML = html;
-        } else {
-            document.getElementById('result').innerHTML = "<div class='alert alert-warning'>No keywords found.</div>";
+        if (data.error) {
+            document.getElementById('result').innerHTML = `<div class='alert alert-danger'>${data.error}</div>`;
+            return;
         }
+
+        let html = `<table class='table'>
+                        <thead><tr><th>Keyword</th><th>Count</th><th>Density (%)</th></tr></thead><tbody>
+                        <tr><td>${data[0].keyword}</td><td>${data[0].count}</td><td>${data[0].density}%</td></tr>
+                        </tbody></table>`;
+        document.getElementById('result').innerHTML = html;
     })
     .catch(error => {
-        document.getElementById('result').innerHTML = `<div class='alert alert-danger'>Error: ${error}</div>`;
+        document.getElementById('result').innerHTML = `<div class='alert alert-danger'>An error occurred. Please try again.</div>`;
     });
 });
 </script>
