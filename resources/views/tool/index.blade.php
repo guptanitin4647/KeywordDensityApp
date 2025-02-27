@@ -3,29 +3,42 @@
 @section('content')
 <form id="keywordDensityInputForm">
     <div class="form-group">
-        <label for="keywordDensityInput">HTML or Text</label>
-        <textarea class="form-control" id="keywordDensityInput" name="keywordInput" rows="6" placeholder="Enter HTML or plain text here..."></textarea>
+        <label for="toggleMode">Keyword Density Mode</label>
+        <input type="checkbox" id="toggleMode" checked>
     </div>
     <div class="form-group">
+        <label for="keywordDensityInput">HTML or Text</label>
+        <textarea class="form-control" id="keywordDensityInput" name="keywordInput" rows="12" placeholder="Enter HTML or plain text here..."></textarea>
+    </div>
+    <div class="form-group" id="keywordField">
         <label for="keyword">Keyword</label>
         <input type="text" class="form-control" id="keyword" name="keyword" placeholder="Enter keyword...">
     </div>
-    <button type="submit" class="btn btn-primary mb-2">Get Keyword Density</button>
+    <button type="submit" class="btn btn-primary mb-2">Get Keyword Densities</button>
 </form>
-
 <div id="result" class="mt-3"></div>
 @endsection
 
 @section('scripts')
 <script>
+document.getElementById('toggleMode').addEventListener('change', function () {
+    let keywordField = document.getElementById('keywordField');
+    if (this.checked) {
+        keywordField.style.display = 'block';
+    } else {
+        keywordField.style.display = 'none';
+    }
+});
+
 document.getElementById('keywordDensityInputForm').addEventListener('submit', function (e) {
     e.preventDefault();
-
+    
     let kdInput = document.getElementById('keywordDensityInput').value;
     let keyword = document.getElementById('keyword').value;
+    let mode = document.getElementById('toggleMode').checked;
 
-    if (kdInput.trim() === "" || keyword.trim() === "") { 
-        document.getElementById('result').innerHTML = "<div class='alert alert-warning'>Please enter both text and a keyword.</div>";
+    if (kdInput === "" || (mode && keyword === "")) { 
+        document.getElementById('result').innerHTML = "<div class='alert alert-warning'><span style='color: red;'>&#9888;</span> Please enter a keyword.</div>";
         return;
     }
 
@@ -35,23 +48,23 @@ document.getElementById('keywordDensityInputForm').addEventListener('submit', fu
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ keywordInput: kdInput, keyword: keyword })
+        body: JSON.stringify({ keywordInput: kdInput, keyword: mode ? keyword : null, fullTextMode: !mode })
     })
     .then(response => response.json())
     .then(data => {
-        if (data.error) {
-            document.getElementById('result').innerHTML = `<div class='alert alert-danger'>${data.error}</div>`;
-            return;
+        if (data.length > 0) {
+            let html = "<table class='table'><thead><tr><th>Keyword</th><th>Count</th><th>Density</th></tr></thead><tbody>";
+            data.forEach(item => {
+                html += `<tr><td>${item.keyword}</td><td>${item.count}</td><td>${item.density}%</td></tr>`;
+            });
+            html += "</tbody></table>";
+            document.getElementById('result').innerHTML = html;
+        } else {
+            document.getElementById('result').innerHTML = "<div class='alert alert-warning'>No keywords found.</div>";
         }
-
-        let html = `<table class='table'>
-                        <thead><tr><th>Keyword</th><th>Count</th><th>Density (%)</th></tr></thead><tbody>
-                        <tr><td>${data[0].keyword}</td><td>${data[0].count}</td><td>${data[0].density}%</td></tr>
-                        </tbody></table>`;
-        document.getElementById('result').innerHTML = html;
     })
     .catch(error => {
-        document.getElementById('result').innerHTML = `<div class='alert alert-danger'>An error occurred. Please try again.</div>`;
+        document.getElementById('result').innerHTML = `<div class='alert alert-danger'>Error: ${error}</div>`;
     });
 });
 </script>

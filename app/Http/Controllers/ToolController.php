@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Html2Text\Html2Text;
-use Illuminate\Support\Facades\Log;
 
 class ToolController extends Controller
 {
@@ -13,47 +12,63 @@ class ToolController extends Controller
         return view('tool.index');
     }
 
-    public function CalculateAndGetDensity(Request $request)
-    {
-        if (!$request->isMethod('POST')) {
-            return response()->json(['error' => 'Invalid request method'], 405);
-        }
-
-        // Validate inputs
-        $request->validate([
-            'keywordInput' => 'required|string',
-            'keyword' => 'required|string|min:1',
-        ]);
-
-        try {
-            // Convert HTML to plain text and normalize
-            $html = new Html2Text($request->keywordInput);
+    public function CalculateAndGetDensity(Request $request) {
+        if ($request->isMethod('POST')) {
+            // Decode JSON input
+            $requestData = json_decode($request->getContent(), true);
+    
+            // Validate input
+            if (!$requestData || !isset($requestData['keywordInput'])) {
+                return response()->json(['error' => 'Invalid input data'], 400);
+            }
+    
+            $html = new Html2Text($requestData['keywordInput']);
             $text = strtolower($html->getText());
+    
+            // Get total word count
             $totalWordCount = str_word_count($text);
             $wordsAndOccurrence = array_count_values(str_word_count($text, 1));
-
+    
             $keywordDensityArray = [];
-            $keyword = strtolower(trim($request->keyword)); // Normalize keyword
-
-            if (!isset($wordsAndOccurrence[$keyword])) {
-                Log::warning("Keyword '{$keyword}' not found.");
-                return response()->json(["error" => "Keyword '{$keyword}' not found in the text"], 404);
+    
+            // Check if full text mode is enabled
+            if (isset($requestData['fullTextMode']) && $requestData['fullTextMode']) {
+                // Return density for all words
+                foreach ($wordsAndOccurrence as $word => $count) {
+                    $density = round(($count / $totalWordCount) * 100, 2);
+                    $keywordDensityArray[] = [
+                        "keyword" => $word,
+                        "count" => $count,
+                        "density" => $density
+                    ];
+                }
+            } else {
+                // Return density only for the specific keyword
+                if (!isset($requestData['keyword']) || empty(trim($requestData['keyword']))) {
+                    return response()->json(['error' => 'Keyword is required in keyword mode'], 400);
+                }
+    
+                $keyword = strtolower(trim($requestData['keyword']));
+    
+                if (isset($wordsAndOccurrence[$keyword])) {
+                    $count = $wordsAndOccurrence[$keyword];
+                    $density = round(($count / $totalWordCount) * 100, 2);
+    
+                    $keywordDensityArray[] = [
+                        "keyword" => $keyword,
+                        "count" => $count,
+                        "density" => $density
+                    ];
+                }
             }
-
-            $count = $wordsAndOccurrence[$keyword];
-            $density = round(($count / $totalWordCount) * 100, 2);
-
-            $keywordDensityArray[] = [
-                "keyword" => $keyword,
-                "count" => $count,
-                "density" => $density
-            ];
-
+    
+            // Sort words by occurrence in descending order
+            usort($keywordDensityArray, fn($a, $b) => $b['count'] - $a['count']);
+    
             return response()->json($keywordDensityArray);
-
-        } catch (\Exception $e) {
-            Log::error("Error in CalculateAndGetDensity: " . $e->getMessage());
-            return response()->json(['error' => 'An unexpected error occurred.'], 500);
         }
+    
+        return response()->json(['error' => 'Invalid request method'], 405);
     }
+    
 }
